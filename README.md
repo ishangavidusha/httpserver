@@ -20,7 +20,7 @@ A lightweight, feature-rich HTTP server implementation for MicroPython environme
 
 ## Installation
 
-1. Copy `server.py` to your MicroPython device.
+1. Copy `server` dir to your MicroPython device.
 2. Create your main application file (e.g., `main.py`) that imports and uses the server.
 
 ## Usage
@@ -28,13 +28,13 @@ A lightweight, feature-rich HTTP server implementation for MicroPython environme
 Here's a basic example of how to use the server:
 
 ```python
-from server import HTTPServer, Response, HTTPError
+from server.server import HTTPServer, Response, HTTPError
 
 server = HTTPServer(port=8080, log_level='DEBUG', max_request_size=16384)
 
 # Configure CORS
 server.set_cors_config(
-    allow_origins=['http://localhost:3000', 'https://example.com'],
+    allow_origins=['*'],
     allow_methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allow_headers=['Content-Type', 'Authorization'],
     allow_credentials=True,
@@ -79,7 +79,7 @@ The main server class.
 #### Constructor
 
 ```python
-HTTPServer(port=80, log_level='INFO', max_request_size=8192, cors_config=None)
+HTTPServer(port=8080, log_level='INFO', max_request_size=8192, cors_config=None)
 ```
 
 - `port`: The port to run the server on (default: 80)

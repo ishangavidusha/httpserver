@@ -1,4 +1,4 @@
-from server import HTTPServer, Response, HTTPError
+from server.server import HTTPServer, Response, HTTPError
 import json
 import time
 
