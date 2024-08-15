@@ -1,9 +1,7 @@
 import socket
 import json
-import select
 from .logger import Logger
 from .response import Response, HTTPError
-from .event_source import EventSource
 from .cors_config import CORSConfig
 
 class HTTPServer:
@@ -16,7 +14,6 @@ class HTTPServer:
         self.logger = Logger(log_level)
         self.max_request_size = max_request_size
         self.cors_config = cors_config or CORSConfig()
-        self.event_source = EventSource()
 
     def start(self):
         try:
@@ -26,30 +23,14 @@ class HTTPServer:
             self.logger.info(f"Server started on port {self.port}")
 
             while True:
-                readable, _, _ = select.select(
-                    [self.socket] + list(self.event_source.clients), [], [], 0.1
-                )
-                for sock in readable:
-                    if sock is self.socket:
-                        conn, addr = self.socket.accept()
-                        self.logger.info(f"New connection from {addr}")
-                        try:
-                            self.handle_request(conn)
-                        except Exception as e:
-                            self.logger.error(f"Error handling request: {str(e)}")
-                        finally:
-                            if conn not in self.event_source.clients:
-                                conn.close()
-                    else:
-                        # Handle potential client disconnection
-                        try:
-                            data = sock.recv(1024)
-                            if not data:
-                                self.event_source.remove_client(sock)
-                                sock.close()
-                        except Exception:
-                            self.event_source.remove_client(sock)
-                            sock.close()
+                conn, addr = self.socket.accept()
+                self.logger.info(f"New connection from {addr}")
+                try:
+                    self.handle_request(conn)
+                except Exception as e:
+                    self.logger.error(f"Error handling request: {str(e)}")
+                finally:
+                    conn.close()
         except Exception as e:
             self.logger.critical(f"Server error: {str(e)}")
         finally:
@@ -75,9 +56,7 @@ class HTTPServer:
 
             self.logger.info(f"Received {method} request for {path}")
 
-            if path in self.routes and self.routes[path].get("SSE"):
-                self.handle_sse_request(conn, path, headers)
-            elif method == "OPTIONS":
+            if method == "OPTIONS":
                 response = self.handle_preflight(headers)
                 self.send_response(conn, response)
             else:
@@ -101,25 +80,6 @@ class HTTPServer:
 
     def send_response(self, conn, response):
         conn.send(response.to_bytes())
-
-    def handle_sse_request(self, conn, path, headers):
-        response_headers = [
-            "HTTP/1.1 200 OK",
-            "Content-Type: text/event-stream",
-            "Cache-Control: no-cache",
-            "Connection: keep-alive",
-            "\r\n",
-        ]
-        conn.send("\r\n".join(response_headers).encode("utf-8"))
-
-        self.event_source.add_client(conn)
-        handler = self.routes[path]["GET"]
-        try:
-            handler(self.event_source, headers)
-        except Exception as e:
-            self.logger.error(f"Error in SSE handler: {str(e)}")
-        finally:
-            self.event_source.remove_client(conn)
 
     def handle_preflight(self, headers):
         requested_method = headers.get("access-control-request-method")
@@ -192,13 +152,6 @@ class HTTPServer:
                 self.routes[path] = {}
             for method in methods:
                 self.routes[path][method] = handler
-            return handler
-
-        return decorator
-
-    def sse_route(self, path):
-        def decorator(handler):
-            self.routes[path] = {"GET": handler, "SSE": True}
             return handler
 
         return decorator

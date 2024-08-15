@@ -1,12 +1,11 @@
 # MicroPython HTTP Server
 
-A lightweight, feature-rich HTTP server implementation for MicroPython environments. This server supports basic HTTP methods, CORS, Server-Sent Events (SSE), and more.
+A lightweight, feature-rich HTTP server implementation for MicroPython environments. This server supports basic HTTP methods, CORS, and more, optimized for single-threaded microcontroller environments.
 
 ## Features
 
 - Support for HTTP methods: GET, POST, PUT, DELETE, OPTIONS
 - CORS (Cross-Origin Resource Sharing) support
-- Server-Sent Events (SSE) for real-time updates
 - Query parameter parsing
 - JSON request/response handling
 - Static file serving
@@ -16,11 +15,11 @@ A lightweight, feature-rich HTTP server implementation for MicroPython environme
 ## Requirements
 
 - MicroPython environment
-- `socket`, `json`, `time`, and `select` modules (usually included in MicroPython)
+- `socket` and `json` modules (usually included in MicroPython)
 
 ## Installation
 
-1. Copy `server` dir to your MicroPython device.
+1. Copy the `server` directory to your MicroPython device.
 2. Create your main application file (e.g., `main.py`) that imports and uses the server.
 
 ## Usage
@@ -58,13 +57,9 @@ def api_data(query_params, headers, body):
         return Response(response_data)
     raise HTTPError(400, "Invalid Content-Type")
 
-@server.sse_route('/events')
-def sse_handler(event_source, headers):
-    count = 0
-    while True:
-        event_source.add_event('update', json.dumps({'count': count, 'time': time.time()}))
-        count += 1
-        time.sleep(1)
+@server.route('/static/style.css', methods=['GET'])
+def serve_css(query_params, headers, body):
+    return HTTPServer.serve_file('static/style.css', 'text/css')
 
 if __name__ == '__main__':
     server.start()
@@ -79,7 +74,7 @@ The main server class.
 #### Constructor
 
 ```python
-HTTPServer(port=8080, log_level='INFO', max_request_size=8192, cors_config=None)
+HTTPServer(port=80, log_level='INFO', max_request_size=8192, cors_config=None)
 ```
 
 - `port`: The port to run the server on (default: 80)
@@ -91,7 +86,6 @@ HTTPServer(port=8080, log_level='INFO', max_request_size=8192, cors_config=None)
 
 - `start()`: Start the server
 - `route(path, methods=None)`: Decorator to register a route
-- `sse_route(path)`: Decorator to register an SSE route
 - `set_cors_config(...)`: Configure CORS settings
 - `serve_file(file_path, content_type)`: Serve a static file
 - `parse_json(body)`: Parse JSON data
