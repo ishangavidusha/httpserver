@@ -5,6 +5,36 @@ from .response import Response, HTTPError
 from .cors_config import CORSConfig
 
 class HTTPServer:
+    """
+    A simple HTTP server implementation.
+
+    Args:
+        port (int): The port number to listen on. Default is 80.
+        log_level (str): The log level for the server. Default is "INFO".
+        max_request_size (int): The maximum size of a request in bytes. Default is 8192.
+        cors_config (CORSConfig): The CORS (Cross-Origin Resource Sharing) configuration. Default is None.
+
+    Attributes:
+        port (int): The port number to listen on.
+        socket (socket.socket): The server socket.
+        routes (dict): A dictionary of routes and their corresponding handlers.
+        logger (Logger): The logger instance for logging server events.
+        max_request_size (int): The maximum size of a request in bytes.
+        cors_config (CORSConfig): The CORS configuration.
+
+    Methods:
+        start(): Start the server.
+        handle_request(conn): Handle an incoming request.
+        send_response(conn, response): Send a response to the client.
+        handle_preflight(headers): Handle a preflight request.
+        parse_request(request): Parse an HTTP request.
+        parse_query_string(query_string): Parse a query string into a dictionary of parameters.
+        process_request(method, path, query_params, headers, body): Process an HTTP request.
+        route(path, methods): Decorator for defining a route and its corresponding handler.
+        set_cors_config(allow_origins, allow_methods, allow_headers, allow_credentials, max_age): Set the CORS configuration.
+        serve_file(file_path, content_type): Serve a file as a response.
+        parse_json(body): Parse a JSON string into a Python object.
+    """
     def __init__(
         self, port=80, log_level="INFO", max_request_size=8192, cors_config=None
     ):
@@ -16,6 +46,12 @@ class HTTPServer:
         self.cors_config = cors_config or CORSConfig()
 
     def start(self):
+        """
+        Starts the server and listens for incoming connections on the specified port.
+
+        Raises:
+            Exception: If there is an error starting the server.
+        """
         try:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socket.bind(("0.0.0.0", self.port))
@@ -38,6 +74,20 @@ class HTTPServer:
                 self.socket.close()
 
     def handle_request(self, conn):
+        """
+        Handles an incoming HTTP request.
+
+        Args:
+            conn (socket): The socket connection for the request.
+
+        Raises:
+            HTTPError: If the request entity is too large (413 status code).
+            Exception: If an unexpected error occurs.
+
+        Returns:
+            None
+
+        """
         try:
             request = b""
             while True:
@@ -79,9 +129,31 @@ class HTTPServer:
             self.send_response(conn, error_response)
 
     def send_response(self, conn, response):
+        """
+        Sends the given response to the specified connection.
+
+        Parameters:
+        - conn: The connection to send the response to.
+        - response: The response to send.
+
+        Returns:
+        None
+        """
         conn.send(response.to_bytes())
 
     def handle_preflight(self, headers):
+        """
+        Handles preflight requests.
+
+        Args:
+            headers (dict): The headers of the request.
+
+        Returns:
+            Response: The response to the preflight request.
+
+        Raises:
+            HTTPError: If the preflight request is invalid.
+        """
         requested_method = headers.get("access-control-request-method")
         requested_headers = headers.get("access-control-request-headers")
 
@@ -96,6 +168,19 @@ class HTTPServer:
             raise HTTPError(400, "Invalid preflight request")
 
     def parse_request(self, request):
+        """
+        Parses the HTTP request and extracts the method, path, query parameters, headers, and body.
+
+        Args:
+            request (str): The HTTP request string.
+
+        Returns:
+            tuple: A tuple containing the method (str), path (str), query parameters (dict), headers (dict), and body (str).
+
+        Raises:
+            HTTPError: If there is a bad request.
+
+        """
         try:
             lines = request.split("\r\n")
             method, full_path, _ = lines[0].split()
@@ -122,6 +207,16 @@ class HTTPServer:
             raise HTTPError(400, f"Bad Request: {str(e)}")
 
     def parse_query_string(self, query_string):
+        """
+        Parses the given query string and returns a dictionary of parameters.
+
+        Args:
+            query_string (str): The query string to be parsed.
+
+        Returns:
+            dict: A dictionary containing the parsed parameters.
+
+        """
         params = {}
         if query_string:
             pairs = query_string.split("&")
@@ -137,6 +232,22 @@ class HTTPServer:
         return params
 
     def process_request(self, method, path, query_params, headers, body):
+        """
+        Process the incoming HTTP request.
+
+        Args:
+            method (str): The HTTP method of the request.
+            path (str): The path of the request.
+            query_params (dict): The query parameters of the request.
+            headers (dict): The headers of the request.
+            body (str): The body of the request.
+
+        Returns:
+            The response generated by the request handler.
+
+        Raises:
+            HTTPError: If the requested path and method combination is not found.
+        """
         if path in self.routes and method in self.routes[path]:
             handler = self.routes[path][method]
             return handler(query_params, headers, body)
@@ -144,6 +255,16 @@ class HTTPServer:
             raise HTTPError(404, "Not Found")
 
     def route(self, path, methods=None):
+        """
+        Decorator function for defining routes in the HTTP server.
+
+        Parameters:
+        - path (str): The URL path for the route.
+        - methods (list, optional): The HTTP methods allowed for the route. Defaults to ["GET"].
+
+        Returns:
+        - decorator (function): The decorator function that adds the route to the server's routes dictionary.
+        """
         if methods is None:
             methods = ["GET"]
 
@@ -164,21 +285,53 @@ class HTTPServer:
         allow_credentials=False,
         max_age=None,
     ):
+        """
+        Set the Cross-Origin Resource Sharing (CORS) configuration for the server.
+
+        Parameters:
+        - allow_origins (list or str): List of allowed origins or a single origin string. Defaults to None.
+        - allow_methods (list or str): List of allowed HTTP methods or a single method string. Defaults to None.
+        - allow_headers (list or str): List of allowed HTTP headers or a single header string. Defaults to None.
+        - allow_credentials (bool): Whether to allow credentials (cookies, HTTP authentication) to be sent with requests. Defaults to False.
+        - max_age (int): Maximum age (in seconds) of the CORS preflight response. Defaults to None.
+        """
         self.cors_config = CORSConfig(
             allow_origins, allow_methods, allow_headers, allow_credentials, max_age
         )
 
     @staticmethod
     def serve_file(file_path, content_type):
+        """
+        Serves the content of a file as a response.
+
+        Args:
+            file_path (str): The path to the file to be served.
+            content_type (str): The content type of the file.
+
+        Returns:
+            Response: The response object containing the file content.
+
+        Raises:
+            Exception: If there is an error while reading the file.
+        """
         try:
             with open(file_path, "r") as file:
                 content = file.read()
             return Response(content, headers={"Content-Type": content_type})
-        except Exception:
-            return Response("File not found", status_code=404)
+        except Exception as e:
+            return Response({"error": str(e)}, status_code=500)
 
     @staticmethod
     def parse_json(body):
+        """
+        Parse the given JSON string and return the corresponding Python object.
+
+        Args:
+            body (str): The JSON string to be parsed.
+
+        Returns:
+            object: The Python object representing the parsed JSON, or None if parsing fails.
+        """
         try:
             return json.loads(body)
         except Exception:

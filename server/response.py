@@ -1,12 +1,46 @@
 import json
 
 class HTTPError(Exception):
+    """
+    Custom exception class for representing HTTP errors.
+
+    Args:
+        status_code (int): The HTTP status code of the error.
+        message (str): The error message.
+
+    Attributes:
+        status_code (int): The HTTP status code of the error.
+        message (str): The error message.
+    """
     def __init__(self, status_code, message):
         self.status_code = status_code
         self.message = message
         super().__init__(self.message)
 
 class Response:
+    """
+    Initializes a Response object.
+
+    Args:
+        body (str, optional): The response body. Defaults to "".
+        status_code (int, optional): The HTTP status code. Defaults to 200.
+        headers (dict, optional): The response headers. Defaults to None.
+
+    Sets the 'Content-Type' header based on the type of the response body.
+    If the body is a dictionary, the content type is set to 'application/json'.
+    Otherwise, it is set to 'text/html'.
+
+    Adds CORS headers to the response based on the provided CORS configuration and origin.
+
+    Args:
+        cors_config (CorsConfig): The CORS configuration.
+        origin (str): The origin of the request.
+
+    Converts the response object to bytes.
+
+    Returns:
+        bytes: The response as bytes.
+    """
     def __init__(self, body="", status_code=200, headers=None):
         self.body = body
         self.status_code = status_code
@@ -14,6 +48,13 @@ class Response:
         self.set_content_type()
 
     def set_content_type(self):
+        """
+        Sets the Content-Type header based on the type of the response body.
+
+        If the Content-Type header is not already set, it checks the type of the response body.
+        If the body is a dictionary, it sets the Content-Type to "application/json".
+        Otherwise, it sets the Content-Type to "text/html".
+        """
         if "Content-Type" not in self.headers:
             if isinstance(self.body, dict):
                 self.headers["Content-Type"] = "application/json"
@@ -21,6 +62,16 @@ class Response:
                 self.headers["Content-Type"] = "text/html"
 
     def add_cors_headers(self, cors_config, origin):
+        """
+        Adds CORS headers to the response.
+
+        Parameters:
+        - cors_config (CorsConfig): The CORS configuration.
+        - origin (str): The origin of the request.
+
+        Returns:
+        None
+        """
         if cors_config.allow_origins == ["*"] or origin in cors_config.allow_origins:
             self.headers["Access-Control-Allow-Origin"] = origin
         if cors_config.allow_credentials:
@@ -36,6 +87,12 @@ class Response:
                 self.headers["Access-Control-Max-Age"] = str(cors_config.max_age)
 
     def to_bytes(self):
+        """
+        Converts the HTTP response object to bytes.
+
+        Returns:
+            bytes: The HTTP response headers and body encoded as bytes.
+        """
         status_codes = {
             200: "OK",
             201: "Created",
